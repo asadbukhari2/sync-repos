@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Run Sync Script</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 2rem;
+      }
+      button {
+        font-size: 1rem;
+        padding: 10px 20px;
+      }
+      #output {
+        background: #000;
+        color: #0f0;
+        padding: 1rem;
+        margin-top: 1rem;
+        height: 400px;
+        overflow-y: scroll;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Trigger Git Sync</h2>
+    <button onclick="triggerSync()">Run Sync</button>
+    <div id="output"></div>
+
+    <script>
+      function triggerSync() {
+        const output = document.getElementById("output");
+        output.textContent = "Starting sync...\n";
+
+        const eventSource = new EventSource("/run-sync");
+
+        eventSource.onmessage = function (e) {
+          output.textContent += e.data + "\n";
+          output.scrollTop = output.scrollHeight; // auto scroll
+        };
+
+        eventSource.onerror = function () {
+          output.textContent += "\n[Connection closed or error occurred]";
+          eventSource.close();
+        };
+      }
+    </script>
+  </body>
+</html>
