@@ -1,37 +1,24 @@
-const express = require("express");
-const { spawn } = require("child_process");
-const app = express();
-const PORT = 3000;
-require("dotenv").config();
+// server.js
+const cluster = require("cluster");
+const os = require("os");
+const app = require("./app");
 
-app.use(express.static("public"));
+const PORT = process.env.PORT || 3000;
+const numCPUs = os.cpus().length;
 
-app.get("/run-sync", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+if (cluster.isPrimary) {
+  console.log(`🧠 Master ${process.pid} is running`);
 
-  const sync = spawn("bash", ["./sync.sh"], {
-    env: {
-      BITBUCKET_REPO: process.env.BITBUCKET_REPO,
-      GITHUB_REPO: process.env.GITHUB_REPO,
-    },
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
+
+  cluster.on("exit", (worker) => {
+    console.log(`⚠️ Worker ${worker.process.pid} died. Restarting...`);
+    cluster.fork();
   });
-
-  sync.stdout.on("data", (data) => {
-    res.write(`data: [stdout] ${data.toString().trim()}\n\n`);
+} else {
+  app.listen(PORT, () => {
+    console.log(`🚀 Worker ${process.pid} listening on port ${PORT}`);
   });
-
-  sync.stderr.on("data", (data) => {
-    res.write(`data: [stderr] ${data.toString().trim()}\n\n`);
-  });
-
-  sync.on("close", (code) => {
-    res.write(`data: === Script finished with exit code ${code} ===\n\n`);
-    res.end();
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running at ${PORT}`);
-});
+}
